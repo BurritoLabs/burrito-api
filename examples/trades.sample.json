@@ -1,0 +1,28 @@
+{
+  "trades": [
+    {
+      "pairAddress": "terra_PAIR_ADDRESS_HERE",
+      "txHash": "SAMPLE_TX_HASH_1",
+      "height": 28700001,
+      "timestamp": 1779840000,
+      "baseAmount": "1",
+      "quoteAmount": "25",
+      "price": "25",
+      "volume": "25",
+      "eventIndex": 0,
+      "source": "external-backfill"
+    },
+    {
+      "pairAddress": "terra_PAIR_ADDRESS_HERE",
+      "txHash": "SAMPLE_TX_HASH_2",
+      "height": 28700002,
+      "timestamp": 1779840300,
+      "baseAmount": "1.2",
+      "quoteAmount": "30.6",
+      "price": "25.5",
+      "volume": "30.6",
+      "eventIndex": 0,
+      "source": "external-backfill"
+    }
+  ]
+}

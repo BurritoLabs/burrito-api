@@ -1,0 +1,14 @@
+[
+  {
+    "symbol": "LUNC/USTC",
+    "pairAddress": "terra_PAIR_ADDRESS_HERE",
+    "base": "uluna",
+    "quote": "uusd",
+    "baseDecimals": 6,
+    "quoteDecimals": 6,
+    "dex": "terraswap",
+    "enabled": true,
+    "startHeight": null,
+    "backfill": true
+  }
+]
