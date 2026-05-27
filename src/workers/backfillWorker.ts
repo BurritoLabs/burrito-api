@@ -21,6 +21,7 @@ const formatError = (error: unknown) =>
 const args = parseArgs()
 const pairFilter = getStringArg(args, "pair")
 const toHeightArg = getNumberArg(args, "to-height")
+const recentBlocks = getNumberArg(args, "recent-blocks")
 const batchBlocks = getNumberArg(args, "batch-blocks") ?? env.BACKFILL_BATCH_BLOCKS
 const maxBatches =
   getNumberArg(args, "max-batches") ?? env.BACKFILL_MAX_BATCHES_PER_RUN
@@ -33,8 +34,8 @@ syncConfiguredPairs(db)
 const provider = createTradeProvider()
 const candleService = new CandleService(db)
 const pairs = listPairs(db, true)
-  .filter((pair) => pair.backfill)
   .filter((pair) => {
+    if (!pairFilter && !pair.backfill) return false
     if (!pairFilter) return true
     const normalizedFilter = pairFilter.toLowerCase()
     return (
@@ -43,20 +44,6 @@ const pairs = listPairs(db, true)
       toTradingViewSymbol(pair.symbol).toLowerCase() === normalizedFilter
     )
   })
-const actionablePairs = pairs.filter((pair) => {
-  if (pair.startHeight === null) {
-    console.log(
-      `Skipping ${pair.symbol}: startHeight is null. Later versions can auto-detect contract creation height.`
-    )
-    return false
-  }
-  return true
-})
-
-if (!actionablePairs.length) {
-  console.log("No pairs are ready for backfill.")
-  process.exit(0)
-}
 
 let latestHeight: number | undefined
 try {
@@ -78,11 +65,33 @@ if (safeLatestHeight === undefined) {
   process.exit(0)
 }
 
+const actionablePairs = pairs.filter((pair) => {
+  if (pair.startHeight === null && recentBlocks === undefined) {
+    console.log(
+      `Skipping ${pair.symbol}: startHeight is null. Use --recent-blocks for recent on-demand candles.`
+    )
+    return false
+  }
+  return true
+})
+
+if (!actionablePairs.length) {
+  console.log("No pairs are ready for backfill.")
+  process.exit(0)
+}
+
 let processedBatches = 0
 
 for (const pair of actionablePairs) {
   const state = getSyncState(db, pair.pairAddress, "backfill")
-  let fromHeight = state ? state.lastHeight + 1 : pair.startHeight!
+  const recentStartHeight =
+    recentBlocks !== undefined
+      ? Math.max(1, safeLatestHeight - recentBlocks + 1)
+      : undefined
+  let fromHeight = state ? state.lastHeight + 1 : pair.startHeight ?? recentStartHeight!
+  if (recentStartHeight !== undefined) {
+    fromHeight = Math.max(fromHeight, recentStartHeight)
+  }
 
   while (fromHeight <= safeLatestHeight && processedBatches < maxBatches) {
     const toHeight = Math.min(safeLatestHeight, fromHeight + batchBlocks - 1)

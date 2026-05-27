@@ -19,9 +19,14 @@ type PairRow = {
   base_decimals: number
   quote_decimals: number
   dex: string
+  dex_label: string
+  pool_type: string
   enabled: number
   start_height: number | null
   backfill: number
+  hot: number
+  source: string
+  discovered_at: number
   created_at: number
   updated_at: number
 }
@@ -84,9 +89,14 @@ const toPairRecord = (row: PairRow): PairRecord => ({
   baseDecimals: row.base_decimals,
   quoteDecimals: row.quote_decimals,
   dex: row.dex,
+  dexLabel: row.dex_label || row.dex,
+  type: row.pool_type || "xyk",
   enabled: Boolean(row.enabled),
   startHeight: row.start_height,
   backfill: Boolean(row.backfill),
+  hot: Boolean(row.hot),
+  source: row.source || "config",
+  discoveredAt: row.discovered_at,
   createdAt: row.created_at,
   updatedAt: row.updated_at
 })
@@ -120,16 +130,33 @@ const toCandleRecord = (row: CandleRow): CandleRecord => ({
   updatedAt: row.updated_at
 })
 
-export const upsertPairs = (db: Database.Database, pairs: PairConfig[]) => {
+export const upsertPairs = (
+  db: Database.Database,
+  pairs: PairConfig[],
+  options: { preserveRuntimeState?: boolean } = {}
+) => {
   const now = nowUnixSeconds()
+  const conflictRuntimeSet = options.preserveRuntimeState
+    ? `
+      enabled = pairs.enabled,
+      start_height = COALESCE(excluded.start_height, pairs.start_height),
+      backfill = pairs.backfill,
+      hot = pairs.hot,
+    `
+    : `
+      enabled = excluded.enabled,
+      start_height = excluded.start_height,
+      backfill = excluded.backfill,
+      hot = excluded.hot,
+    `
   const statement = db.prepare(`
     INSERT INTO pairs (
-      pair_address, symbol, base, quote, base_decimals, quote_decimals, dex,
-      enabled, start_height, backfill, created_at, updated_at
+      pair_address, symbol, base, quote, base_decimals, quote_decimals, dex, dex_label,
+      pool_type, enabled, start_height, backfill, hot, source, discovered_at, created_at, updated_at
     )
     VALUES (
-      @pairAddress, @symbol, @base, @quote, @baseDecimals, @quoteDecimals, @dex,
-      @enabled, @startHeight, @backfill, @createdAt, @updatedAt
+      @pairAddress, @symbol, @base, @quote, @baseDecimals, @quoteDecimals, @dex, @dexLabel,
+      @type, @enabled, @startHeight, @backfill, @hot, @source, @discoveredAt, @createdAt, @updatedAt
     )
     ON CONFLICT(pair_address) DO UPDATE SET
       symbol = excluded.symbol,
@@ -138,9 +165,14 @@ export const upsertPairs = (db: Database.Database, pairs: PairConfig[]) => {
       base_decimals = excluded.base_decimals,
       quote_decimals = excluded.quote_decimals,
       dex = excluded.dex,
-      enabled = excluded.enabled,
-      start_height = excluded.start_height,
-      backfill = excluded.backfill,
+      dex_label = excluded.dex_label,
+      pool_type = excluded.pool_type,
+      ${conflictRuntimeSet}
+      source = excluded.source,
+      discovered_at = CASE
+        WHEN pairs.discovered_at > 0 THEN pairs.discovered_at
+        ELSE excluded.discovered_at
+      END,
       updated_at = excluded.updated_at
   `)
 
@@ -154,9 +186,14 @@ export const upsertPairs = (db: Database.Database, pairs: PairConfig[]) => {
         baseDecimals: pair.baseDecimals,
         quoteDecimals: pair.quoteDecimals,
         dex: pair.dex,
+        dexLabel: pair.dexLabel,
+        type: pair.type,
         enabled: pair.enabled ? 1 : 0,
         startHeight: pair.startHeight,
         backfill: pair.backfill ? 1 : 0,
+        hot: pair.hot ? 1 : 0,
+        source: pair.source,
+        discoveredAt: now,
         createdAt: now,
         updatedAt: now
       })
@@ -171,6 +208,55 @@ export const listPairs = (db: Database.Database, enabledOnly = false): PairRecor
     ? db.prepare("SELECT * FROM pairs WHERE enabled = 1 ORDER BY symbol").all()
     : db.prepare("SELECT * FROM pairs ORDER BY symbol").all()
   return (rows as PairRow[]).map(toPairRecord)
+}
+
+export const listHotPairs = (db: Database.Database): PairRecord[] => {
+  const rows = db
+    .prepare("SELECT * FROM pairs WHERE enabled = 1 AND hot = 1 ORDER BY symbol")
+    .all()
+  return (rows as PairRow[]).map(toPairRecord)
+}
+
+export const updatePairState = (
+  db: Database.Database,
+  pairAddress: string,
+  state: {
+    enabled?: boolean
+    backfill?: boolean
+    hot?: boolean
+    startHeight?: number | null
+  }
+) => {
+  const assignments: string[] = []
+  const params: Record<string, string | number | null> = {
+    pairAddress: normalizePairAddress(pairAddress),
+    updatedAt: nowUnixSeconds()
+  }
+
+  if (state.enabled !== undefined) {
+    assignments.push("enabled = @enabled")
+    params.enabled = state.enabled ? 1 : 0
+  }
+  if (state.backfill !== undefined) {
+    assignments.push("backfill = @backfill")
+    params.backfill = state.backfill ? 1 : 0
+  }
+  if (state.hot !== undefined) {
+    assignments.push("hot = @hot")
+    params.hot = state.hot ? 1 : 0
+  }
+  if (state.startHeight !== undefined) {
+    assignments.push("start_height = @startHeight")
+    params.startHeight = state.startHeight
+  }
+
+  if (!assignments.length) return 0
+
+  assignments.push("updated_at = @updatedAt")
+  const result = db
+    .prepare(`UPDATE pairs SET ${assignments.join(", ")} WHERE pair_address = @pairAddress`)
+    .run(params)
+  return result.changes
 }
 
 export const insertTrade = (db: Database.Database, trade: TradeInput) => {
@@ -392,6 +478,9 @@ export const getDatabaseStats = (db: Database.Database) => {
   const enabledPairCount = (
     db.prepare("SELECT COUNT(*) AS count FROM pairs WHERE enabled = 1").get() as CountRow
   ).count
+  const hotPairCount = (
+    db.prepare("SELECT COUNT(*) AS count FROM pairs WHERE enabled = 1 AND hot = 1").get() as CountRow
+  ).count
   const tradeCount = (
     db.prepare("SELECT COUNT(*) AS count FROM trades").get() as CountRow
   ).count
@@ -408,6 +497,7 @@ export const getDatabaseStats = (db: Database.Database) => {
   return {
     pairs: pairCount,
     enabledPairs: enabledPairCount,
+    hotPairs: hotPairCount,
     trades: tradeCount,
     candles: candleCount,
     latestTradeHeight: latestTrade?.height ?? null,

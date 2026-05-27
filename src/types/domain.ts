@@ -19,12 +19,17 @@ export type PairConfig = {
   baseDecimals: number
   quoteDecimals: number
   dex: string
+  dexLabel: string
+  type: string
   enabled: boolean
   startHeight: number | null
   backfill: boolean
+  hot: boolean
+  source: string
 }
 
 export type PairRecord = PairConfig & {
+  discoveredAt: number
   createdAt: number
   updatedAt: number
 }

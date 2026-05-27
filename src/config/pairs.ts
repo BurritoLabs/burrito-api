@@ -12,9 +12,13 @@ const pairSchema = z.object({
   baseDecimals: z.number().int().min(0).max(30).default(6),
   quoteDecimals: z.number().int().min(0).max(30).default(6),
   dex: z.string().min(1),
+  dexLabel: z.string().min(1).optional(),
+  type: z.string().min(1).default("xyk"),
   enabled: z.boolean().default(true),
   startHeight: z.number().int().nonnegative().nullable().default(null),
-  backfill: z.boolean().default(true)
+  backfill: z.boolean().default(true),
+  hot: z.boolean().default(true),
+  source: z.string().min(1).default("config")
 })
 
 const pairsSchema = z.array(pairSchema).min(1)
@@ -26,6 +30,7 @@ export const loadPairsConfig = (
   const pairs = pairsSchema.parse(JSON.parse(raw))
   return pairs.map((pair) => ({
     ...pair,
+    dexLabel: pair.dexLabel ?? pair.dex,
     pairAddress: normalizePairAddress(pair.pairAddress)
   }))
 }

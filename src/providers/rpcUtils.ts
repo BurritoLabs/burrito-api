@@ -31,6 +31,8 @@ const toAttributeMap = (event: TendermintEvent) => {
 const normalizeAsset = (value: string | undefined) => {
   if (!value) return ""
   const trimmed = value.trim().toLowerCase()
+  if (trimmed.startsWith("native:")) return normalizeAsset(trimmed.slice("native:".length))
+  if (trimmed.startsWith("cw20:")) return normalizeAsset(trimmed.slice("cw20:".length))
 
   try {
     const parsed = JSON.parse(trimmed) as unknown

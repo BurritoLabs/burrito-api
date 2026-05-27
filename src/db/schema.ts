@@ -14,6 +14,21 @@ const ensurePairsSchema = (db: Database.Database) => {
   if (columns.length && !columnNames.has("quote_decimals")) {
     db.exec("ALTER TABLE pairs ADD COLUMN quote_decimals INTEGER NOT NULL DEFAULT 6;")
   }
+  if (columns.length && !columnNames.has("dex_label")) {
+    db.exec("ALTER TABLE pairs ADD COLUMN dex_label TEXT NOT NULL DEFAULT '';")
+  }
+  if (columns.length && !columnNames.has("pool_type")) {
+    db.exec("ALTER TABLE pairs ADD COLUMN pool_type TEXT NOT NULL DEFAULT 'xyk';")
+  }
+  if (columns.length && !columnNames.has("hot")) {
+    db.exec("ALTER TABLE pairs ADD COLUMN hot INTEGER NOT NULL DEFAULT 1;")
+  }
+  if (columns.length && !columnNames.has("source")) {
+    db.exec("ALTER TABLE pairs ADD COLUMN source TEXT NOT NULL DEFAULT 'config';")
+  }
+  if (columns.length && !columnNames.has("discovered_at")) {
+    db.exec("ALTER TABLE pairs ADD COLUMN discovered_at INTEGER NOT NULL DEFAULT 0;")
+  }
 }
 
 const ensureSyncStateSchema = (db: Database.Database) => {
@@ -60,9 +75,14 @@ export const runMigrations = (db: Database.Database) => {
       base_decimals INTEGER NOT NULL DEFAULT 6,
       quote_decimals INTEGER NOT NULL DEFAULT 6,
       dex TEXT NOT NULL,
+      dex_label TEXT NOT NULL DEFAULT '',
+      pool_type TEXT NOT NULL DEFAULT 'xyk',
       enabled INTEGER NOT NULL DEFAULT 1,
       start_height INTEGER,
       backfill INTEGER NOT NULL DEFAULT 1,
+      hot INTEGER NOT NULL DEFAULT 1,
+      source TEXT NOT NULL DEFAULT 'config',
+      discovered_at INTEGER NOT NULL,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
@@ -99,6 +119,8 @@ export const runMigrations = (db: Database.Database) => {
     );
 
     CREATE INDEX IF NOT EXISTS idx_pairs_enabled ON pairs(enabled);
+    CREATE INDEX IF NOT EXISTS idx_pairs_hot ON pairs(enabled, hot);
+    CREATE INDEX IF NOT EXISTS idx_pairs_dex ON pairs(dex);
     CREATE INDEX IF NOT EXISTS idx_trades_pair_timestamp ON trades(pair_address, timestamp);
     CREATE INDEX IF NOT EXISTS idx_trades_pair_height ON trades(pair_address, height);
     CREATE INDEX IF NOT EXISTS idx_candles_pair_interval_time ON candles(pair_address, interval, time);

@@ -10,15 +10,18 @@
     "migrate": "tsx src/db/migrate.ts",
     "seed:sample": "tsx src/scripts/seedSample.ts",
     "import:trades": "tsx src/scripts/importTrades.ts",
+    "sync:pairs": "tsx src/scripts/syncPairs.ts",
+    "pair:set": "tsx src/scripts/setPairState.ts",
     "aggregate:candles": "tsx src/scripts/aggregateCandles.ts",
     "resolve:start-heights": "tsx src/scripts/resolveStartHeights.ts",
     "validate:config": "tsx src/scripts/validateConfig.ts",
     "test:rpc-parser": "tsx src/scripts/testRpcParser.ts",
+    "test:market-sync": "tsx src/scripts/testMarketIndexSync.ts",
     "worker": "tsx src/workers/realtimeWorker.ts",
     "worker:realtime": "tsx src/workers/realtimeWorker.ts",
     "worker:backfill": "tsx src/workers/backfillWorker.ts",
     "test:candles": "tsx src/scripts/testCandles.ts",
-    "test": "npm run build && npm run test:candles && npm run test:rpc-parser && npm run validate:config"
+    "test": "npm run build && npm run test:candles && npm run test:rpc-parser && npm run test:market-sync && npm run validate:config"
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",

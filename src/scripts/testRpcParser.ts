@@ -11,9 +11,14 @@ const pair: PairRecord = {
   baseDecimals: 6,
   quoteDecimals: 6,
   dex: "terraswap",
+  dexLabel: "Terraswap",
+  type: "xyk",
   enabled: true,
   startHeight: 28700000,
   backfill: true,
+  hot: true,
+  source: "test",
+  discoveredAt: 0,
   createdAt: 0,
   updatedAt: 0
 }

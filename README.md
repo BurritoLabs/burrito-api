@@ -3,6 +3,7 @@
 Lightweight API service for Burrito Market candles and TradingView chart data on Terra Classic.
 
 This project is intentionally not a full chain indexer. It only handles DEX pairs configured in `config/pairs.json`.
+It can also import all Burrito Market pairs from a market index, but imported pairs default to `hot=false` and `backfill=false` so the realtime worker does not scan thousands of pools.
 
 ## What v0.1 Does
 
@@ -90,9 +91,13 @@ Pairs live in `config/pairs.json`:
     "baseDecimals": 6,
     "quoteDecimals": 6,
     "dex": "terraswap",
+    "dexLabel": "Terraswap",
+    "type": "xyk",
     "enabled": true,
     "startHeight": null,
-    "backfill": true
+    "backfill": true,
+    "hot": true,
+    "source": "config"
   }
 ]
 ```
@@ -179,12 +184,16 @@ History response without data:
 ```bash
 npm run migrate
 npm run seed:sample
+npm run sync:pairs -- --file ../burrito-web-app/public/market/index.json
+npm run sync:pairs -- --url https://burrito.money/market/index.json
+npm run pair:set -- --pair terra_PAIR_ADDRESS_HERE --hot true --backfill true
 npm run import:trades -- --file ./data/trades.json --aggregate
 npm run aggregate:candles
 npm run resolve:start-heights
 npm run validate:config
 npm run test:candles
 npm run test:rpc-parser
+npm run test:market-sync
 npm run dev
 npm run build
 npm run start
@@ -192,7 +201,26 @@ npm run worker:realtime
 npm run worker:backfill
 ```
 
-`worker:realtime` uses the configured provider. With `TRADE_PROVIDER=rpc`, it starts from the current safe height when `startHeight` is `null`, so it does not scan from `0`.
+`sync:pairs` imports all market pairs into SQLite. It preserves existing runtime state for pairs already in the database, and imported pairs default to `hot=false` and `backfill=false`.
+
+To keep new market pairs synced after Burrito Market publishes a new index, run it manually after each deploy or add a cron job:
+
+```bash
+crontab -e
+```
+
+```cron
+*/30 * * * * cd /srv/burrito-api && npm run sync:pairs -- --url https://burrito.money/market/index.json >> /var/log/burrito-pair-sync.log 2>&1
+```
+
+`worker:realtime` only scans enabled pairs with `hot=true`. With `TRADE_PROVIDER=rpc`, it starts from the current safe height when `startHeight` is `null`, so it does not scan from `0`.
+
+Use `pair:set` to promote an imported pair into the realtime hot set:
+
+```bash
+npm run pair:set -- --pair terra_PAIR_ADDRESS_HERE --hot true --backfill true
+npm run pair:set -- --pair terra_PAIR_ADDRESS_HERE --start-height 28790000
+```
 
 `worker:backfill` only runs for pairs with a real `startHeight`. For complete history, set `startHeight` to the pair contract creation height.
 
@@ -202,10 +230,13 @@ Backfill is intentionally bounded so it can run safely on a node server:
 npm run worker:backfill
 npm run worker:backfill -- --pair LUNC_USTC
 npm run worker:backfill -- --pair terra_PAIR_ADDRESS_HERE --to-height 28750000
+npm run worker:backfill -- --pair terra_PAIR_ADDRESS_HERE --recent-blocks 10000
 npm run worker:backfill -- --batch-blocks 100 --max-batches 50 --sleep-ms 250
 ```
 
 `worker:backfill` saves progress in `sync_state` with `worker=backfill`, so you can run it repeatedly until history is complete. It will not overwrite the realtime worker progress.
+
+For imported cold pairs without `startHeight`, use `--recent-blocks` to generate recent candles on demand without scanning from contract creation.
 
 ## Importing Historical Trades
 

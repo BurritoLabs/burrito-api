@@ -3,7 +3,7 @@ import { getDatabase } from "../db/connection.js"
 import {
   getSyncState,
   insertTrades,
-  listPairs,
+  listHotPairs,
   upsertSyncState
 } from "../db/repositories.js"
 import { runMigrations } from "../db/schema.js"
@@ -40,7 +40,7 @@ if (!env.INDEXER_ENABLED) {
 console.log(`Realtime worker started with provider=${provider.name}.`)
 
 while (!shouldStop) {
-  const pairs = listPairs(db, true)
+  const pairs = listHotPairs(db)
   let latestHeight: number | undefined
   try {
     latestHeight = provider.getLatestHeight ? await provider.getLatestHeight() : undefined
