@@ -17,11 +17,12 @@
     "validate:config": "tsx src/scripts/validateConfig.ts",
     "test:rpc-parser": "tsx src/scripts/testRpcParser.ts",
     "test:market-sync": "tsx src/scripts/testMarketIndexSync.ts",
+    "test:migrations": "tsx src/scripts/testMigrations.ts",
     "worker": "tsx src/workers/realtimeWorker.ts",
     "worker:realtime": "tsx src/workers/realtimeWorker.ts",
     "worker:backfill": "tsx src/workers/backfillWorker.ts",
     "test:candles": "tsx src/scripts/testCandles.ts",
-    "test": "npm run build && npm run test:candles && npm run test:rpc-parser && npm run test:market-sync && npm run validate:config"
+    "test": "npm run build && npm run test:candles && npm run test:rpc-parser && npm run test:market-sync && npm run test:migrations && npm run validate:config"
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",

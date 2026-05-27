@@ -118,9 +118,6 @@ export const runMigrations = (db: Database.Database) => {
       UNIQUE(pair_address, interval, time)
     );
 
-    CREATE INDEX IF NOT EXISTS idx_pairs_enabled ON pairs(enabled);
-    CREATE INDEX IF NOT EXISTS idx_pairs_hot ON pairs(enabled, hot);
-    CREATE INDEX IF NOT EXISTS idx_pairs_dex ON pairs(dex);
     CREATE INDEX IF NOT EXISTS idx_trades_pair_timestamp ON trades(pair_address, timestamp);
     CREATE INDEX IF NOT EXISTS idx_trades_pair_height ON trades(pair_address, height);
     CREATE INDEX IF NOT EXISTS idx_candles_pair_interval_time ON candles(pair_address, interval, time);
@@ -128,4 +125,10 @@ export const runMigrations = (db: Database.Database) => {
 
   ensurePairsSchema(db)
   ensureSyncStateSchema(db)
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_pairs_enabled ON pairs(enabled);
+    CREATE INDEX IF NOT EXISTS idx_pairs_hot ON pairs(enabled, hot);
+    CREATE INDEX IF NOT EXISTS idx_pairs_dex ON pairs(dex);
+  `)
 }
