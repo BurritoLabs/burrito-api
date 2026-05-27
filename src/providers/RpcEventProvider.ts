@@ -44,11 +44,11 @@ export class RpcEventProvider implements TradeProvider {
 
     while (page <= 10) {
       const params = new URLSearchParams({
-        query,
+        query: JSON.stringify(query),
         prove: "false",
         page: String(page),
         per_page: "100",
-        order_by: "\"asc\""
+        order_by: JSON.stringify("asc")
       })
       const data = await this.getJson<TxSearchResponse>(`/tx_search?${params.toString()}`)
       const pageTxs = data.result?.txs ?? []
