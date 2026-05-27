@@ -5,6 +5,8 @@ export class FcdTradeProvider implements TradeProvider {
   readonly name = "fcd"
 
   async fetchTrades(_pair: PairRecord, _options: FetchTradesOptions): Promise<TradeInput[]> {
-    return []
+    throw new Error(
+      "FcdTradeProvider is not implemented yet. Use TRADE_PROVIDER=rpc or import normalized trades."
+    )
   }
 }

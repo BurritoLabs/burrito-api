@@ -14,7 +14,7 @@ This project is intentionally not a full chain indexer. It only handles DEX pair
 - Includes development sample trades so candle generation can be tested before real chain providers are implemented.
 - Imports normalized historical trades from JSON, so historical data can come from Binodes, FCD, Finder, an archive node, or any converter script.
 
-RPC realtime fetching is implemented as a conservative provider. Historical completeness still depends on whether your source can actually return old tx/event data.
+RPC realtime fetching is implemented as a conservative provider. Historical completeness still depends on whether your source can actually return old tx/event data. The Binodes and FCD providers are intentionally fail-closed placeholders until their real response formats are wired in.
 
 ## Local Development
 
@@ -60,6 +60,9 @@ CHAIN_ID=columbus-5
 LCD_URL=http://127.0.0.1:1317
 RPC_URL=http://127.0.0.1:26657
 DATABASE_PATH=./data/burrito-candles.sqlite
+CACHE_TTL_SECONDS=10
+RATE_LIMIT_MAX=120
+RATE_LIMIT_TIME_WINDOW=1 minute
 INDEXER_ENABLED=false
 INDEXER_BATCH_BLOCKS=100
 INDEXER_CONFIRMATIONS=1
@@ -70,6 +73,8 @@ TRADE_PROVIDER=rpc
 ```
 
 Do not expose local RPC or LCD publicly. Public API access should go through Nginx to this service only.
+
+Public read endpoints send `Cache-Control: public, max-age=CACHE_TTL_SECONDS` when the value is greater than `0`.
 
 ## Pair Config
 
@@ -280,6 +285,8 @@ RPC_URL=http://127.0.0.1:26657
 FCD_URL=
 DATABASE_PATH=./data/burrito-candles.sqlite
 CACHE_TTL_SECONDS=10
+RATE_LIMIT_MAX=120
+RATE_LIMIT_TIME_WINDOW=1 minute
 INDEXER_ENABLED=false
 INDEXER_INTERVAL_SECONDS=10
 INDEXER_BATCH_BLOCKS=100

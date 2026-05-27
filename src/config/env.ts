@@ -10,6 +10,8 @@ const envSchema = z.object({
   FCD_URL: z.string().optional().default(""),
   DATABASE_PATH: z.string().min(1).default("./data/burrito-candles.sqlite"),
   CACHE_TTL_SECONDS: z.coerce.number().int().nonnegative().default(10),
+  RATE_LIMIT_MAX: z.coerce.number().int().positive().default(120),
+  RATE_LIMIT_TIME_WINDOW: z.string().min(1).default("1 minute"),
   INDEXER_ENABLED: z
     .enum(["true", "false", "1", "0"])
     .default("true")

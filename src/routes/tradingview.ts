@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify"
 import { z } from "zod"
 import type { CandleInterval, PairRecord } from "../types/domain.js"
 import { listCandles, listPairs } from "../db/repositories.js"
+import { setPublicCache } from "../utils/http.js"
 import { findPairBySymbolOrAddress, toTradingViewSymbol } from "../utils/symbols.js"
 
 const supportedResolutions = ["1", "5", "15", "60", "240", "D"] as const
@@ -55,15 +56,19 @@ export const registerTradingViewRoutes = async (
   app: FastifyInstance,
   db: Database.Database
 ) => {
-  app.get("/v1/tradingview/config", async () => ({
-    supported_resolutions: supportedResolutions,
-    supports_group_request: false,
-    supports_marks: false,
-    supports_search: true,
-    supports_timescale_marks: false
-  }))
+  app.get("/v1/tradingview/config", async (_request, reply) => {
+    setPublicCache(reply)
+    return {
+      supported_resolutions: supportedResolutions,
+      supports_group_request: false,
+      supports_marks: false,
+      supports_search: true,
+      supports_timescale_marks: false
+    }
+  })
 
   app.get("/v1/tradingview/symbols", async (request, reply) => {
+    setPublicCache(reply)
     const query = symbolQuerySchema.parse(request.query)
     const pair = findPairBySymbolOrAddress(listPairs(db, true), query.symbol)
     if (!pair) {
@@ -72,7 +77,8 @@ export const registerTradingViewRoutes = async (
     return toSymbolInfo(pair)
   })
 
-  app.get("/v1/tradingview/search", async (request) => {
+  app.get("/v1/tradingview/search", async (request, reply) => {
+    setPublicCache(reply)
     const query = searchQuerySchema.parse(request.query)
     const needle = query.query.trim().toLowerCase()
     return listPairs(db, true)
@@ -96,6 +102,7 @@ export const registerTradingViewRoutes = async (
   })
 
   app.get("/v1/tradingview/history", async (request, reply) => {
+    setPublicCache(reply)
     const query = historyQuerySchema.parse(request.query)
     const interval = resolutionToInterval(query.resolution)
     if (!interval) {

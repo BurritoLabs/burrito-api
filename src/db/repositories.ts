@@ -251,6 +251,24 @@ export const listAllTradesForPair = (
   return (rows as TradeRow[]).map(toTradeRecord)
 }
 
+export const listTradesForPairInTimeRange = (
+  db: Database.Database,
+  pairAddress: string,
+  fromTimestampInclusive: number,
+  toTimestampExclusive: number
+): TradeRecord[] => {
+  const rows = db
+    .prepare(
+      `SELECT * FROM trades
+       WHERE pair_address = ?
+         AND timestamp >= ?
+         AND timestamp < ?
+       ORDER BY timestamp ASC, id ASC`
+    )
+    .all(normalizePairAddress(pairAddress), fromTimestampInclusive, toTimestampExclusive)
+  return (rows as TradeRow[]).map(toTradeRecord)
+}
+
 export const upsertCandles = (
   db: Database.Database,
   candles: Array<Omit<CandleRecord, "id" | "updatedAt">>

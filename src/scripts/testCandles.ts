@@ -33,6 +33,14 @@ const result = new CandleService(db).aggregatePair(pair.pairAddress)
 assert.equal(result.tradeCount, 24)
 assert.ok(result.candleCount > 0)
 
+const rangeResult = new CandleService(db).aggregatePairForTimeRange(
+  pair.pairAddress,
+  trades[0].timestamp,
+  trades[trades.length - 1].timestamp
+)
+assert.equal(rangeResult.tradeCount, 24)
+assert.ok(rangeResult.candleCount > 0)
+
 const oneHourCandles = listCandles(db, {
   pairAddress: pair.pairAddress,
   interval: "1h",

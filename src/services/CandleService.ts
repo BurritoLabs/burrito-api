@@ -4,10 +4,14 @@ import type {
   CandleRecord,
   TradeRecord
 } from "../types/domain.js"
-import { candleIntervals } from "../types/domain.js"
+import { candleIntervals, intervalSeconds } from "../types/domain.js"
 import { decimalAdd, decimalMax, decimalMin } from "../utils/decimal.js"
 import { floorTimeToInterval } from "../utils/time.js"
-import { listAllTradesForPair, upsertCandles } from "../db/repositories.js"
+import {
+  listAllTradesForPair,
+  listTradesForPairInTimeRange,
+  upsertCandles
+} from "../db/repositories.js"
 import { normalizePairAddress } from "../utils/symbols.js"
 
 type CandleDraft = Omit<CandleRecord, "id" | "updatedAt">
@@ -29,6 +33,39 @@ export class CandleService {
     return {
       pairAddress: normalizedPairAddress,
       tradeCount: trades.length,
+      candleCount
+    }
+  }
+
+  aggregatePairForTimeRange(
+    pairAddress: string,
+    fromTimestamp: number,
+    toTimestamp: number,
+    intervals: readonly CandleInterval[] = candleIntervals
+  ) {
+    const normalizedPairAddress = normalizePairAddress(pairAddress)
+    let tradeCount = 0
+    let candleCount = 0
+
+    for (const interval of intervals) {
+      const fromBucket = floorTimeToInterval(fromTimestamp, interval)
+      const toBucketExclusive =
+        floorTimeToInterval(toTimestamp, interval) + intervalSeconds[interval]
+      const trades = listTradesForPairInTimeRange(
+        this.db,
+        normalizedPairAddress,
+        fromBucket,
+        toBucketExclusive
+      )
+      const candles = this.aggregateTradesForInterval(trades, interval)
+      upsertCandles(this.db, candles)
+      tradeCount = Math.max(tradeCount, trades.length)
+      candleCount += candles.length
+    }
+
+    return {
+      pairAddress: normalizedPairAddress,
+      tradeCount,
       candleCount
     }
   }

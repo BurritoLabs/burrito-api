@@ -17,7 +17,8 @@
     "worker": "tsx src/workers/realtimeWorker.ts",
     "worker:realtime": "tsx src/workers/realtimeWorker.ts",
     "worker:backfill": "tsx src/workers/backfillWorker.ts",
-    "test:candles": "tsx src/scripts/testCandles.ts"
+    "test:candles": "tsx src/scripts/testCandles.ts",
+    "test": "npm run build && npm run test:candles && npm run test:rpc-parser && npm run validate:config"
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",

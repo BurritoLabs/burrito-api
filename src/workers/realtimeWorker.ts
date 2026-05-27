@@ -13,6 +13,17 @@ import { syncConfiguredPairs } from "../services/pairsService.js"
 import { nowUnixSeconds } from "../utils/time.js"
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+const formatError = (error: unknown) =>
+  error instanceof Error ? error.message : String(error)
+let shouldStop = false
+
+process.once("SIGINT", () => {
+  shouldStop = true
+})
+
+process.once("SIGTERM", () => {
+  shouldStop = true
+})
 
 const db = getDatabase()
 runMigrations(db)
@@ -28,11 +39,16 @@ if (!env.INDEXER_ENABLED) {
 
 console.log(`Realtime worker started with provider=${provider.name}.`)
 
-while (true) {
+while (!shouldStop) {
   const pairs = listPairs(db, true)
-  const latestHeight = provider.getLatestHeight
-    ? await provider.getLatestHeight()
-    : undefined
+  let latestHeight: number | undefined
+  try {
+    latestHeight = provider.getLatestHeight ? await provider.getLatestHeight() : undefined
+  } catch (error) {
+    console.error(`Unable to read latest height from ${provider.name}: ${formatError(error)}`)
+    await sleep(env.INDEXER_INTERVAL_SECONDS * 1000)
+    continue
+  }
   const safeLatestHeight =
     latestHeight !== undefined
       ? Math.max(1, latestHeight - env.INDEXER_CONFIRMATIONS)
@@ -59,10 +75,26 @@ while (true) {
       : fromHeight
     if (toHeight < fromHeight) continue
 
-    const trades = await provider.fetchTrades(pair, { fromHeight, toHeight })
+    let trades
+    try {
+      trades = await provider.fetchTrades(pair, { fromHeight, toHeight })
+    } catch (error) {
+      console.error(
+        `realtime failed pair=${pair.symbol} range=${fromHeight}-${toHeight}: ${formatError(error)}`
+      )
+      continue
+    }
     if (trades.length) {
       const inserted = insertTrades(db, trades)
-      const result = candleService.aggregatePair(pair.pairAddress)
+      const timestamps = trades.map((trade) => trade.timestamp)
+      const result =
+        inserted && timestamps.length
+          ? candleService.aggregatePairForTimeRange(
+              pair.pairAddress,
+              Math.min(...timestamps),
+              Math.max(...timestamps)
+            )
+          : { candleCount: 0, tradeCount: 0 }
       console.log(
         `pair=${pair.symbol} inserted=${inserted} candles=${result.candleCount} trades=${result.tradeCount}`
       )
@@ -78,3 +110,6 @@ while (true) {
 
   await sleep(env.INDEXER_INTERVAL_SECONDS * 1000)
 }
+
+db.close()
+console.log("Realtime worker stopped.")

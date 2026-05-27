@@ -14,3 +14,18 @@ await app.listen({
   host: env.HOST,
   port: env.PORT
 })
+
+const shutdown = async (signal: string) => {
+  app.log.info({ signal }, "Shutting down Burrito API")
+  await app.close()
+  db.close()
+  process.exit(0)
+}
+
+process.once("SIGINT", () => {
+  void shutdown("SIGINT")
+})
+
+process.once("SIGTERM", () => {
+  void shutdown("SIGTERM")
+})

@@ -15,6 +15,8 @@ import { getNumberArg, getStringArg, parseArgs } from "../scripts/args.js"
 import { normalizePairAddress, toTradingViewSymbol } from "../utils/symbols.js"
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+const formatError = (error: unknown) =>
+  error instanceof Error ? error.message : String(error)
 
 const args = parseArgs()
 const pairFilter = getStringArg(args, "pair")
@@ -56,7 +58,14 @@ if (!actionablePairs.length) {
   process.exit(0)
 }
 
-const latestHeight = toHeightArg ?? (provider.getLatestHeight ? await provider.getLatestHeight() : undefined)
+let latestHeight: number | undefined
+try {
+  latestHeight =
+    toHeightArg ?? (provider.getLatestHeight ? await provider.getLatestHeight() : undefined)
+} catch (error) {
+  console.error(`Unable to read latest height from ${provider.name}: ${formatError(error)}`)
+  process.exit(1)
+}
 const safeLatestHeight =
   latestHeight !== undefined
     ? Math.max(1, toHeightArg ?? latestHeight - env.INDEXER_CONFIRMATIONS)
@@ -77,9 +86,27 @@ for (const pair of actionablePairs) {
 
   while (fromHeight <= safeLatestHeight && processedBatches < maxBatches) {
     const toHeight = Math.min(safeLatestHeight, fromHeight + batchBlocks - 1)
-    const trades = await provider.fetchTrades(pair, { fromHeight, toHeight })
+
+    let trades
+    try {
+      trades = await provider.fetchTrades(pair, { fromHeight, toHeight })
+    } catch (error) {
+      console.error(
+        `backfill failed pair=${pair.symbol} range=${fromHeight}-${toHeight}: ${formatError(error)}`
+      )
+      break
+    }
+
     const inserted = trades.length ? insertTrades(db, trades) : 0
-    const result = inserted ? candleService.aggregatePair(pair.pairAddress) : undefined
+    const timestamps = trades.map((trade) => trade.timestamp)
+    const result =
+      inserted && timestamps.length
+        ? candleService.aggregatePairForTimeRange(
+            pair.pairAddress,
+            Math.min(...timestamps),
+            Math.max(...timestamps)
+          )
+        : undefined
 
     upsertSyncState(db, {
       pairAddress: pair.pairAddress,

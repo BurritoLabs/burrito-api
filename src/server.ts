@@ -20,8 +20,8 @@ export const buildServer = async (db: Database.Database) => {
   })
 
   await app.register(rateLimit, {
-    max: 120,
-    timeWindow: "1 minute"
+    max: env.RATE_LIMIT_MAX,
+    timeWindow: env.RATE_LIMIT_TIME_WINDOW
   })
 
   await app.register(swagger, {

@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify"
 import { z } from "zod"
 import { candleIntervals, type CandleInterval } from "../types/domain.js"
 import { listCandles, listPairs, listTrades } from "../db/repositories.js"
+import { setPublicCache } from "../utils/http.js"
 import { findPairBySymbolOrAddress, normalizePairAddress } from "../utils/symbols.js"
 
 const limitSchema = z.coerce.number().int().min(1).max(500).default(100)
@@ -25,7 +26,8 @@ const candlesQuerySchema = z.object({
 })
 
 export const registerDexRoutes = async (app: FastifyInstance, db: Database.Database) => {
-  app.get("/v1/dex/trades", async (request) => {
+  app.get("/v1/dex/trades", async (request, reply) => {
+    setPublicCache(reply)
     const query = tradesQuerySchema.parse(request.query)
     const pair = findPairBySymbolOrAddress(listPairs(db, true), query.pair)
     const pairAddress = pair?.pairAddress ?? normalizePairAddress(query.pair)
@@ -40,7 +42,8 @@ export const registerDexRoutes = async (app: FastifyInstance, db: Database.Datab
     }
   })
 
-  app.get("/v1/dex/candles", async (request) => {
+  app.get("/v1/dex/candles", async (request, reply) => {
+    setPublicCache(reply)
     const query = candlesQuerySchema.parse(request.query)
     const pair = findPairBySymbolOrAddress(listPairs(db, true), query.pair)
     const pairAddress = pair?.pairAddress ?? normalizePairAddress(query.pair)
